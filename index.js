@@ -1,94 +1,85 @@
 const express = require("express");
-const { MongoClient } = require("mongodb"); // Destructure MongoClient
+const { MongoClient } = require("mongodb");
 const cors = require("cors");
+const multer = require("multer");
 require("dotenv").config();
 
-const app = express();
-app.use(
-  cors({
-    origin: "https://todo-frontend-chi-rouge.vercel.app/",
-  })
-);
-app.use(express.json()); // Enable JSON parsing middleware
-
 const CONNECTION_STRING = process.env.MONGODB_URI;
+const DATABASE_NAME = "todoappdb";
 
-const DATABASE = "todoappdb";
-let database; // Store the database instance
+const app = express();
+const upload = multer(); // Initialize Multer
 
-// Function to connect to MongoDB
-async function connectToMongoDB() {
-  try {
-    const client = await MongoClient.connect(CONNECTION_STRING);
-    database = client.db(DATABASE);
-    console.log("MongoDB connection established");
+let database;
 
-    // Start the Express server after MongoDB is connected
+// Middleware
+app.use(cors()); // Handle CORS
+app.use(express.json()); // Parse JSON request bodies
+
+// Connect to MongoDB and Start Server
+MongoClient.connect(CONNECTION_STRING)
+  .then((client) => {
+    database = client.db(DATABASE_NAME);
+    console.log("Connected to MongoDB");
+
     app.listen(5030, () => {
       console.log("Server is running on port 5030");
     });
-  } catch (error) {
-    console.error("Failed to connect to MongoDB:", error);
-    process.exit(1); // Exit process if DB connection fails
-  }
-}
+  })
+  .catch((err) => {
+    console.error("Failed to connect to MongoDB:", err);
+    process.exit(1); // Exit if connection fails
+  });
 
-// Call the function to connect to MongoDB
-connectToMongoDB();
-
-// API to get notes from the collection
+// Get Notes Endpoint
 app.get("/api/todoapp/GetNotes", async (req, res) => {
   try {
     const notes = await database
       .collection("todoappcollection")
       .find({})
       .toArray();
-    res.status(200).json(notes); // Send notes as JSON
+    res.json(notes);
   } catch (err) {
-    console.error("Error fetching notes:", err);
+    console.error("Failed to fetch notes:", err);
     res.status(500).json({ error: "Failed to fetch notes" });
   }
 });
 
-app.post("/api/todoapp/AddNotes", async (req, res) => {
+// Add Note Endpoint
+app.post("/api/todoapp/AddNotes", upload.none(), async (req, res) => {
   try {
-    // Count the existing documents to generate a new ID
+    const newNotes = req.body.newNotes;
     const noOfDocs = await database
       .collection("todoappcollection")
-      .countDocuments({});
+      .countDocuments();
 
-    // Insert the new note
-    const result = await database.collection("todoappcollection").insertOne({
+    await database.collection("todoappcollection").insertOne({
       id: (noOfDocs + 1).toString(),
-      description: req.body.newNotes,
+      description: newNotes,
     });
 
-    if (result.acknowledged) {
-      res.status(201).json({ message: "Note added successfully" });
-    } else {
-      res.status(500).json({ error: "Failed to add note" });
-    }
-  } catch (error) {
-    console.error("Error adding note:", error);
-    res.status(500).json({ error: "An error occurred while adding the note" });
+    res.json({ message: "Note added successfully" });
+  } catch (err) {
+    console.error("Failed to add note:", err);
+    res.status(500).json({ error: "Failed to add note" });
   }
 });
 
+// Delete Note Endpoint
 app.delete("/api/todoapp/DeleteNotes", async (req, res) => {
   try {
-    const result = await database.collection("todoappcollection").deleteOne({
-      id: req.query.id,
-    });
+    const { id } = req.query;
+    const result = await database
+      .collection("todoappcollection")
+      .deleteOne({ id });
 
-    if (result.deletedCount === 1) {
-      res.json({ message: "Note deleted successfully" });
-    } else {
-      res.status(404).json({ error: "Note not found" });
+    if (result.deletedCount === 0) {
+      return res.status(404).json({ error: "Note not found" });
     }
-  } catch (error) {
-    console.error("Error deleting note:", error);
-    res
-      .status(500)
-      .json({ error: "An error occurred while deleting the note" });
+
+    res.json({ message: "Note deleted successfully" });
+  } catch (err) {
+    console.error("Failed to delete note:", err);
+    res.status(500).json({ error: "Failed to delete note" });
   }
 });
