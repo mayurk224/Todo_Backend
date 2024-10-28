@@ -4,7 +4,11 @@ const cors = require("cors");
 require("dotenv").config();
 
 const app = express();
-app.use(cors()); // Enable CORS
+app.use(
+  cors({
+    origin: "https://todo-frontend-chi-rouge.vercel.app/",
+  })
+);
 app.use(express.json()); // Enable JSON parsing middleware
 
 const CONNECTION_STRING = process.env.MONGODB_URI;
