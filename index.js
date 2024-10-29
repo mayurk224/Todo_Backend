@@ -21,12 +21,6 @@ app.use(
     methods: ["GET", "POST", "DELETE"],
   })
 );
-app.use(
-  cors({
-    origin: "http://localhost:5173", // Allow only your Vercel frontend
-    methods: ["GET", "POST", "DELETE"],
-  })
-);
 app.use(express.json()); // Parse JSON request bodies
 
 // Connect to MongoDB and Start Server
