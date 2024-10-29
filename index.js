@@ -5,7 +5,8 @@ const multer = require("multer");
 require("dotenv").config();
 
 const CONNECTION_STRING = process.env.MONGODB_URI;
-const DATABASE_NAME = "todoappdb";
+const DATABASE_NAME = process.env.DATABASE_NAME;
+const COLLECTION_NAME = process.env.COLLECTION_NAME;
 
 const app = express();
 const upload = multer(); // Initialize Multer
@@ -37,10 +38,7 @@ MongoClient.connect(CONNECTION_STRING, {
 // Get Notes Endpoint
 app.get("/api/todoapp/GetNotes", async (req, res) => {
   try {
-    const notes = await database
-      .collection("todoappcollection")
-      .find({})
-      .toArray();
+    const notes = await database.collection(COLLECTION_NAME).find({}).toArray();
     res.json(notes);
   } catch (err) {
     console.error("Failed to fetch notes:", err);
@@ -59,7 +57,7 @@ app.post("/api/todoapp/AddNotes", upload.none(), async (req, res) => {
 
     // Find the highest id in the collection and increment it
     const lastNote = await database
-      .collection("todoappcollection")
+      .collection(COLLECTION_NAME)
       .find({})
       .sort({ id: -1 }) // Sort by id in descending order
       .limit(1) // Get the latest note
@@ -74,7 +72,7 @@ app.post("/api/todoapp/AddNotes", upload.none(), async (req, res) => {
     };
 
     const result = await database
-      .collection("todoappcollection")
+      .collection(COLLECTION_NAME)
       .insertOne(newNote);
 
     res.status(201).json({
@@ -98,7 +96,7 @@ app.delete("/api/todoapp/DeleteNotes", async (req, res) => {
 
     // Delete the note using the 'id' field (stored as a string)
     const result = await database
-      .collection("todoappcollection")
+      .collection(COLLECTION_NAME)
       .deleteOne({ id: id });
 
     if (result.deletedCount === 0) {
