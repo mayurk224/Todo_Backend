@@ -15,6 +15,12 @@ let database;
 
 // Middleware
 app.use(cors()); // Handle CORS
+app.use(
+  cors({
+    origin: "https://todo-frontend-chi-rouge.vercel.app", // Allow only your Vercel frontend
+    methods: ["GET", "POST", "DELETE"],
+  })
+);
 app.use(express.json()); // Parse JSON request bodies
 
 // Connect to MongoDB and Start Server
@@ -26,9 +32,7 @@ MongoClient.connect(CONNECTION_STRING, {
     database = client.db(DATABASE_NAME);
     console.log("Connected to MongoDB");
 
-    app.listen(5030, () => {
-      console.log("Server is running on port 5030");
-    });
+    app.listen(5030);
   })
   .catch((err) => {
     console.error("Failed to connect to MongoDB:", err);
