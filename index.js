@@ -17,7 +17,10 @@ app.use(cors()); // Handle CORS
 app.use(express.json()); // Parse JSON request bodies
 
 // Connect to MongoDB and Start Server
-MongoClient.connect(CONNECTION_STRING)
+MongoClient.connect(CONNECTION_STRING, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true,
+})
   .then((client) => {
     database = client.db(DATABASE_NAME);
     console.log("Connected to MongoDB");
@@ -49,16 +52,35 @@ app.get("/api/todoapp/GetNotes", async (req, res) => {
 app.post("/api/todoapp/AddNotes", upload.none(), async (req, res) => {
   try {
     const newNotes = req.body.newNotes;
-    const noOfDocs = await database
+
+    if (!newNotes) {
+      return res.status(400).json({ error: "Note content is required" });
+    }
+
+    // Find the highest id in the collection and increment it
+    const lastNote = await database
       .collection("todoappcollection")
-      .countDocuments();
+      .find({})
+      .sort({ id: -1 }) // Sort by id in descending order
+      .limit(1) // Get the latest note
+      .toArray();
 
-    await database.collection("todoappcollection").insertOne({
-      id: (noOfDocs + 1).toString(),
+    const newId = lastNote.length > 0 ? parseInt(lastNote[0].id) + 1 : 1;
+
+    const newNote = {
+      id: newId.toString(), // Store the incremented id as a string
       description: newNotes,
-    });
+      createdAt: new Date(), // Optional: Add a timestamp
+    };
 
-    res.json({ message: "Note added successfully" });
+    const result = await database
+      .collection("todoappcollection")
+      .insertOne(newNote);
+
+    res.status(201).json({
+      message: "Note added successfully",
+      id: result.insertedId,
+    });
   } catch (err) {
     console.error("Failed to add note:", err);
     res.status(500).json({ error: "Failed to add note" });
@@ -69,9 +91,15 @@ app.post("/api/todoapp/AddNotes", upload.none(), async (req, res) => {
 app.delete("/api/todoapp/DeleteNotes", async (req, res) => {
   try {
     const { id } = req.query;
+
+    if (!id) {
+      return res.status(400).json({ error: "Note ID is required" });
+    }
+
+    // Delete the note using the 'id' field (stored as a string)
     const result = await database
       .collection("todoappcollection")
-      .deleteOne({ id });
+      .deleteOne({ id: id });
 
     if (result.deletedCount === 0) {
       return res.status(404).json({ error: "Note not found" });
